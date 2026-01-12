@@ -14,7 +14,7 @@ const requiredEnvVars = [
   "DISCORD_TOKEN",
   "SUPABASE_URL",
   "SUPABASE_SERVICE_ROLE_KEY",
-  "GEMINI_API_KEY",
+  "GROQ_API_KEY",
 ];
 
 for (const envVar of requiredEnvVars) {

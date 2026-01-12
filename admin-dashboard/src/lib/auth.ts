@@ -1,14 +1,18 @@
-import { createClient } from "@supabase/supabase-js";
+/**
+ * This file re-exports all Supabase authentication functions
+ * Use this as your central authentication module
+ */
 
-const getSupabaseClient = () => {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-  if (!url || !anonKey) {
-    throw new Error("Missing Supabase environment variables");
-  }
-
-  return createClient(url, anonKey);
-};
-
-export { getSupabaseClient };
+export {
+  supabase,
+  getSupabaseClient,
+  getCurrentUser,
+  signUp,
+  signIn,
+  signInWithMagicLink,
+  signOut,
+  getSession,
+  onAuthStateChange,
+  resetPassword,
+  updatePassword,
+} from "./supabaseClient";

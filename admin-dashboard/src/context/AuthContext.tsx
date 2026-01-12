@@ -1,7 +1,13 @@
 "use client";
 
 import React, { createContext, useContext, useEffect, useState } from "react";
-import { getSupabaseClient } from "@/lib/auth";
+import {
+  signIn as supabaseSignIn,
+  signUp as supabaseSignUp,
+  signOut as supabaseSignOut,
+  getCurrentUser,
+  onAuthStateChange,
+} from "@/lib/supabaseClient";
 
 interface User {
   id: string;
@@ -14,6 +20,7 @@ interface AuthContextType {
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
+  error: string | null;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -21,49 +28,73 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    // Check authentication status on mount
     const checkAuth = async () => {
       try {
-        // Check localStorage for auth
-        const authData = localStorage.getItem("admin_auth");
-        if (authData) {
-          const { email } = JSON.parse(authData);
+        setLoading(true);
+        const currentUser = await getCurrentUser();
+        
+        if (currentUser) {
           setUser({
-            id: "admin",
-            email,
+            id: currentUser.id,
+            email: currentUser.email || "",
           });
+        } else {
+          setUser(null);
         }
-      } catch (error) {
-        console.error("Auth check error:", error);
-        localStorage.removeItem("admin_auth");
+      } catch (err) {
+        console.error("Auth check error:", err);
+        setUser(null);
       } finally {
         setLoading(false);
       }
     };
 
     checkAuth();
+
+    // Listen to auth state changes
+    const subscription = onAuthStateChange((authUser) => {
+      if (authUser) {
+        setUser({
+          id: authUser.id,
+          email: authUser.email || "",
+        });
+      } else {
+        setUser(null);
+      }
+    });
+
+    // Cleanup subscription
+    return () => {
+      if (subscription) {
+        subscription.unsubscribe();
+      }
+    };
   }, []);
 
   const signIn = async (email: string, password: string) => {
     setLoading(true);
+    setError(null);
     try {
-      // Simple authentication check
-      // In production, use Supabase properly or your own backend
       if (!email || !password) {
         throw new Error("Email and password are required");
       }
 
-      // Store auth in localStorage
-      localStorage.setItem("admin_auth", JSON.stringify({ email, authenticated: true }));
+      const { user: authUser } = await supabaseSignIn(email, password);
       
-      setUser({
-        id: "admin",
-        email,
-      });
+      if (authUser) {
+        setUser({
+          id: authUser.id,
+          email: authUser.email || "",
+        });
+      }
     } catch (err: any) {
-      localStorage.removeItem("admin_auth");
-      throw new Error(err.message || "Sign in failed");
+      const errorMessage = err.message || "Sign in failed";
+      setError(errorMessage);
+      throw new Error(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -71,21 +102,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signUp = async (email: string, password: string) => {
     setLoading(true);
+    setError(null);
     try {
       if (!email || !password) {
         throw new Error("Email and password are required");
       }
 
-      // Store auth in localStorage
-      localStorage.setItem("admin_auth", JSON.stringify({ email, authenticated: true }));
+      const { user: authUser } = await supabaseSignUp(email, password);
       
-      setUser({
-        id: "admin",
-        email,
-      });
+      if (authUser) {
+        setUser({
+          id: authUser.id,
+          email: authUser.email || "",
+        });
+      }
     } catch (err: any) {
-      localStorage.removeItem("admin_auth");
-      throw new Error(err.message || "Sign up failed");
+      const errorMessage = err.message || "Sign up failed";
+      setError(errorMessage);
+      throw new Error(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -93,16 +127,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signOut = async () => {
     setLoading(true);
+    setError(null);
     try {
-      localStorage.removeItem("admin_auth");
+      await supabaseSignOut();
       setUser(null);
+    } catch (err: any) {
+      const errorMessage = err.message || "Sign out failed";
+      setError(errorMessage);
+      throw new Error(errorMessage);
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, signIn, signUp, signOut }}>
+    <AuthContext.Provider value={{ user, loading, signIn, signUp, signOut, error }}>
       {children}
     </AuthContext.Provider>
   );
